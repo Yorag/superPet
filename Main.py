@@ -1,11 +1,10 @@
-import sys
 import os
 import time
 from threading import Thread
 from PyQt5.uic import loadUi
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QAbstractItemView, QInputDialog, QMessageBox, QLabel, QPushButton, QTableWidgetItem, QMenu
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject, QUrl
-from PyQt5.QtGui import QPixmap, QColor, QIntValidator
+from PyQt5.QtGui import QPixmap, QColor, QIntValidator, QIcon
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile
 from requests import get
 from request.Action import Qpet
@@ -784,7 +783,8 @@ class MyWebEngineView(QWebEngineView):
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
+    app = QApplication([])
+    # app.setWindowIcon(QIcon('./Image/icon.png'))
     window = Window()
     window.show()
     app.exec_()
