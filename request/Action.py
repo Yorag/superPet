@@ -765,10 +765,3 @@ class Qpet():
         else:
             return res.json()["sMsg"]
 
-
-
-if __name__ == '__main__':
-    ck = 'pt2gguin=; pt2gguin=o3115492626; ETK=; uin=o3115492626; skey=@16WFxfbTC; superuin=o3115492626; supertoken=1638296115; superkey=l6VDDRbevHEK4NWSVBOQHtu9hORgjjsKqXScHp80uzo_; pt_recent_uins=f3ce8d7f330a34ccc27899390ff861ea035899c206f54bf141fa28b50a94c4318ae180c72c5c80a410d93f32e3c4ab3a40d50a7e8db80065; pt_guid_sig=53f060d067324937668570451e036887d3f8ef3157bf656c05f5dff3632ed160; ptnick_3115492626=e68898e4ba89; ptcz=a6c48392e111c55880b4e42ca71f45501e92d5146b90b7bb2c3fac460f87e612; ptcz='
-    pet = Qpet()
-    print(pet.getdata(ck))
-
