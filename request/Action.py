@@ -47,7 +47,7 @@ class Qpet():
             "SIGNIN": "https://qqpet.jwetech.com/api/v2/daily_signs",           # 签到
             "COLLECTEDCOINS": "https://qqpet.jwetech.com/api/counters",         # 领取金币、偷取金币
             "FREE": "https://qqpet.jwetech.com/api/captures/free",              # 脱离捕获
-            "ITEMS": "https://qqpet.jwetech.com/api/cards/{}",                 # 使用道具、送礼物
+            "ITEMS": "https://qqpet.jwetech.com/api/cards/{}",                  # 使用道具、送礼物
             "VIEWFOODS": "https://qqpet.jwetech.com/api/user_foods",            # 查询食物信息
             "FEEDS": "https://qqpet.jwetech.com/api/pet_feeds",                 # 喂食
             "FEEDSFINISH": "https://qqpet.jwetech.com/api/pet_feeds/finish",    # 速食
@@ -56,6 +56,7 @@ class Qpet():
             "GAMEXCX": "https://qqpet.jwetech.com/api/games",                   # 浏览小程序
             "TASK": "https://qqpet.jwetech.com/api/daily_missions",             # 任务列表、做任务、领取任务奖励
             "CLICKPLAYS": "https://qqpet.jwetech.com/api/click_plays",          # 互动奖励
+            "DECORATE": "https://qqpet.jwetech.com/api/dresses",                   # 购买装饰
 
             "FRIENDLSIT": "https://qqpet.jwetech.com/api/rankings",             # 获取好友列表
             # "FRIENDINFO": "https://qqpet.jwetech.com/api/users/{}",             # 获取好友信息
@@ -173,7 +174,6 @@ class Qpet():
             res = self._request(self.urls["SIGNIN"], method="POST",
                            json=json, headers=self.headers)
             if res.json():
-                print(res.json())
                 name = []
                 for i in res.json()["items"]:
                     if i.get("type") == "coin":
@@ -235,15 +235,15 @@ class Qpet():
             if userId == self.userId:
                 self.bankCoins = 0
                 nick = "自己"
-            else:
                 # 遍历任务修改金币任务进度
                 for item in self.listMissions:
                     if int(item["id"]) == 100:
                         item["progress"][1] += collectedCoins
-                        print("金币任务",item["progress"])
                         if item["progress"][1] > item["progress"][0]:
                             item["progress"][1] == item["progress"][0]
+                        print("金币任务",item["progress"])
                         break
+            else:
                 # 遍历friends修改hasCoins
                 for item in self.listFriends:
                     if item["id"] == userId:
@@ -378,7 +378,6 @@ class Qpet():
             price = ("480", "480[萌宠贵族]", "2000")
             self.feedCountdown = 14400
             self.hasFeed = True
-            print(self.listFoods,id)
             return "投喂了一个{name}（{price}）".format(
                 name=self.listFoods[id-1]["name"],
                 price=price[id-1]
@@ -451,7 +450,6 @@ class Qpet():
             json = {"gameId": str(id)}
             res = self._request(self.urls["GAMEXCX"], method="POST",
                        json=json, headers=self.headers)
-        print("小程序打卡",res.json())
         if res.json():
             coins = res.json().get("coins", 0)
             self.coins += coins
@@ -527,6 +525,23 @@ class Qpet():
             else:
                 msg2 = ""
             return msg.format(title=title, msg1=msg1, msg2=msg2)
+
+    def payDecoration(self, id):
+        '''
+        购买衣服
+        @param id: 装饰id
+        @return: 兑换信息
+        '''
+        json = {"dressId": str(id)}
+        res = self._request(self.urls["DECORATE"], method="POST",
+            json=json, headers=self.headers)
+        if res.json().get("code"):
+            msg = res.json()["message"]
+        else:
+            expireAt = res.json()["dresses"][0]["expiredAt"][:10]
+            msg = "购买成功，{expireAt}到期"
+        return msg
+
 
     def getListFriends(self):
         '''
@@ -751,4 +766,9 @@ class Qpet():
             return res.json()["sMsg"]
 
 
+
+if __name__ == '__main__':
+    ck = 'pt2gguin=; pt2gguin=o3115492626; ETK=; uin=o3115492626; skey=@16WFxfbTC; superuin=o3115492626; supertoken=1638296115; superkey=l6VDDRbevHEK4NWSVBOQHtu9hORgjjsKqXScHp80uzo_; pt_recent_uins=f3ce8d7f330a34ccc27899390ff861ea035899c206f54bf141fa28b50a94c4318ae180c72c5c80a410d93f32e3c4ab3a40d50a7e8db80065; pt_guid_sig=53f060d067324937668570451e036887d3f8ef3157bf656c05f5dff3632ed160; ptnick_3115492626=e68898e4ba89; ptcz=a6c48392e111c55880b4e42ca71f45501e92d5146b90b7bb2c3fac460f87e612; ptcz='
+    pet = Qpet()
+    print(pet.getdata(ck))
 
