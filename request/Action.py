@@ -240,8 +240,7 @@ class Qpet():
                     if int(item["id"]) == 100:
                         item["progress"][1] += collectedCoins
                         if item["progress"][1] > item["progress"][0]:
-                            item["progress"][1] == item["progress"][0]
-                        print("金币任务",item["progress"])
+                            item["progress"][1] = item["progress"][0]
                         break
             else:
                 # 遍历friends修改hasCoins
