@@ -1,11 +1,13 @@
 import os
 import time
 from threading import Thread
+
 from PyQt5.uic import loadUi
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QAbstractItemView, QInputDialog, QMessageBox, QLabel, QPushButton, QTableWidgetItem, QMenu
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject, QUrl
-from PyQt5.QtGui import QPixmap, QColor, QIntValidator, QIcon
+from PyQt5.QtGui import QPixmap, QColor, QIntValidator
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile
+
 from requests import get
 from request.Action import Qpet
 
@@ -82,21 +84,29 @@ class Window(QMainWindow):
         self.pushButton_outer.setEnabled(True)
         # 输出登录成功
         self._status("登录成功")
+        pool = []
         # 设置头像
-        image = get(self.pet.avatar)
-        path = "Data/avatar.png"
-        with open(path, "wb") as f:
-            f.write(image.content)
-        self.label_avatar.setPixmap(QPixmap(path))
+        pool.append(Thread(target=self._avator))
         # 调用peroid函数，设置按钮状态&信息标签
-        self.peroid()
+        pool.append(Thread(target=self.peroid))
         # 填充表格[{id, title, taked, progress[,]}]
-        self.fillTable()
+        pool.append(Thread(target=self.fillTable))
+        temp = [thread.start() for thread in pool]
 
     # 内部使用方法
     def _move(self):
         self.friendUI.move(self.pos().x()+self.width(), self.pos().y())
         self.mallUI.move(self.pos().x()+self.width(), self.pos().y())
+
+    def _avator(self):
+        '''
+        设置头像
+        '''
+        image = get(self.pet.avatar)
+        path = "Data/avatar.png"
+        with open(path, "wb") as f:
+            f.write(image.content)
+        self.label_avatar.setPixmap(QPixmap(path))
 
     def _status(self, text):
         '''
@@ -164,13 +174,21 @@ class Window(QMainWindow):
             pos.setY(pos.y()+int(self.menu.sizeHint().height()/2-10))
             action = self.menu.exec_(self.tableWidget_missions.mapToGlobal(pos))
             if action == self.menuItem[0]:
-                # 刷新任务列表&页面信息
-                self.pet.getListTask()
-                self.pet.getInfo()
+                # 刷新任务列表&页面信息&元气列表
+                pool = []
+                pool.append(Thread(target=self.pet.getListTask))
+                pool.append(Thread(target=self.pet.getInfo))
+                pool.append(Thread(target=self.pet.getListVigours, args=(self.pet.userId,)))
+                temp = [thread.start() for thread in pool]
+                temp = [thread.join() for thread in pool]
             elif action == self.menuItem[1]:
                 # 做任务
                 id = self.tableWidget_missions.item(row, 0).text()
-                msg = self.pet.doTask(id)
+                if id == 116:
+                    # 买衣服
+                    msg = self.pet.payDecoration(1121)
+                else:
+                    msg = self.pet.doTask(id)
                 self._status(msg)
             elif action == self.menuItem[2]:
                 # 领取奖励
@@ -221,6 +239,7 @@ class Window(QMainWindow):
         if self.pet.feedCountdown:
             self.pet.feedCountdown -= 1
 
+
     def _loginCK(self):
         cookies, ok = QInputDialog.getText(self, "ck登录", "请输入qq登录的cookies") 
         if ok:
@@ -257,10 +276,8 @@ class Window(QMainWindow):
             pool.append(Thread(target=self.pet.clickStatus))
             pool.append(Thread(target=self.pet.getListgameXcx))
             # 依次执行线程并等待执行完毕
-            for thread in pool:
-                thread.start()
-            for thread in pool:
-                thread.join()
+            temp = [thread.start() for thread in pool]
+            temp = [thread.join() for thread in pool]
             self.isLogin = True
 
             Thread(target=self.initInfo).start()
@@ -273,26 +290,26 @@ class Window(QMainWindow):
     def boss(self):
         '''每日一键'''
         if self.isLogin:
-            # 签到
-            Thread(target=self._signIn).start()
             # 脱离被捕并洗澡
             thread = Thread(target=self._free)
             thread.start()
             thread.join()
+
+            pool = []
+            # 签到
+            pool.append(Thread(target=self._signIn))
             # 互动点击
-            Thread(target=self._clickPlays).start()
+            pool.append(Thread(target=self._clickPlays))
             # 打工
-            Thread(target=self._game).start()
+            pool.append(Thread(target=self._game))
             # 小程序打卡
-            Thread(target=self._gameXcx).start()
+            pool.append(Thread(target=self._gameXcx))
             # 收元气
-            Thread(target=self._collectedVigours).start()
+            pool.append(Thread(target=self._collectedVigours))
             # 喂食速食喂食
-            thread = Thread(target=self._feedsFinish)
-            thread.start()
-            thread.join()
-            # 道具自动喂食
-            Thread(target=self._useItem).start()
+            pool.append(Thread(target=self._feedsFinish))
+
+            temp = [thread.start() for thread in pool]
             # 做任务
             pass
 
@@ -400,7 +417,6 @@ class Window(QMainWindow):
             vigours = []
             if self.pet.listVigours:
                 listVigours = self.pet.listVigours.copy()
-                print("元气列表", self.pet.listVigours)
                 for id in listVigours:
                     vigour = self.pet.collectedVigours(id, self.pet.userId)
                     vigours.append(vigour)
@@ -652,28 +668,40 @@ class Mall(QWidget, QObject):
             msg = self.pet.mallLogin()
             if msg:
                 self.msg_signal.emit(msg)
+            pool = []
             # 判断并签到
-            if not self.pet.mallHasSign:
-                msg = self.pet.mallSignIn()
-                self.msg_signal.emit(msg)
+            pool.append(Thread(target=self._sign))
             # 获取商品列表
-            msg = self.pet.getGoods()
-            if msg:
-                self.msg_signal.emit(msg)
-            else:
-                # 简化商品列表，只包括价格小于5位数的商品。并转换格式设置为标签提示
-                self.listSimpleGoods = [{key: value for key,value in item.items()} for item in self.pet.listGoods if len(str(item["price"]))<=5]
-                txt = ["--".join(item.values()) for item in self.listSimpleGoods]
-                # 每三组商品占一行，设置提示信息
-                msg = ""
-                for index,item in enumerate(txt):
-                    if (index+1)%3:
-                        msg += item+"、"
-                    elif index == len(txt)-1:
-                        msg += item
-                    else:
-                        msg += item+"\n"
-                self.label.setToolTip(msg)
+            pool.append(Thread(target=self._goodlist))
+            temp = [thread.start() for thread in pool]
+
+    def _sign(self):
+        '''签到'''
+        if not self.pet.mallHasSign:
+            msg = self.pet.mallSignIn()
+            self.msg_signal.emit(msg)
+
+
+    def _goodlist(self):
+        '''获取商品列表'''
+        msg = self.pet.getGoods()
+        if msg:
+            self.msg_signal.emit(msg)
+        else:
+            # 简化商品列表，只包括价格小于5位数的商品。并转换格式设置为标签提示
+            self.listSimpleGoods = [{key: value for key,value in item.items()} for item in self.pet.listGoods if len(str(item["price"]))<=5]
+            txt = ["--".join(item.values()) for item in self.listSimpleGoods]
+            # 每三组商品占一行，设置提示信息
+            msg = ""
+            for index,item in enumerate(txt):
+                if (index+1)%3:
+                    msg += item+"、"
+                elif index == len(txt)-1:
+                    msg += item
+                else:
+                    msg += item+"\n"
+            self.label.setToolTip(msg)
+
 
     def _lookAd(self):
         '''看广告'''
@@ -758,9 +786,11 @@ class Mall(QWidget, QObject):
 
     def boss(self):
         '''一键商店'''
-        Thread(target=self._lookAd).start()
-        Thread(target=self._luckDraw).start()
-        Thread(target=self._bargain, args=(True,)).start()
+        pool = []
+        pool.append(Thread(target=self._lookAd))
+        pool.append(Thread(target=self._luckDraw))
+        pool.append(Thread(target=self._bargain, args=(True,)))
+        temp = [thread.start() for thread in pool]
 
 
 class MyWebEngineView(QWebEngineView):
@@ -784,7 +814,7 @@ class MyWebEngineView(QWebEngineView):
 
 if __name__ == '__main__':
     app = QApplication([])
-    # app.setWindowIcon(QIcon('./Image/icon.png'))
+    # app.setWindowIcon(QIcon('./Image/song.png'))
     window = Window()
     window.show()
     app.exec_()
