@@ -125,7 +125,6 @@ class Qpet():
         res = requests.post(self.urls["LOGIN"], json=data, verify=False)
         self._token = res.json()["token"]
         self.headers["Authorization"] = "Bearer {}".format(self._token)
-        print("token：", self._token)
         self.userId = res.json()["id"]
         self.coins = res.json()["coins"]
         self.vigours = res.json()["vigours"]
@@ -284,7 +283,8 @@ class Qpet():
         self.vigours += vigours
         if userId == self.userId:
             nick = "自己"
-            self.listVigours.remove(id)
+            if id in self.listVigours:
+                self.listVigours.remove(id)
         else:
             # 遍历friends修改hasUncollectVigours
             for item in self.listFriends:
@@ -343,6 +343,8 @@ class Qpet():
         else:
             if id == 10:
                 self.feedCountdown -= 3600
+                if self.feedCountdown < 0:
+                    self.feedCountdown = 0
                 msg = ""
             elif id == 50:
                 msg = " 亲密度[{}]".format(res.json()["cp"]["points"])
@@ -387,7 +389,7 @@ class Qpet():
         res = self._request(self.urls["FEEDSFINISH"],
                        method="POST", json={}, headers=self.headers)
         if len(res.text) < 300:
-            self.feedsFinish = False
+            self.hasFinished = False
             return True
         else:
             return False
@@ -430,27 +432,14 @@ class Qpet():
     def gameXcx(self, id):
         '''
         打工，小程序
-        @param id: 小程序id。夺宝赛车场(1000)、K歌夺宝(1001)、魔力碎片(1002)、爱江山更爱美人(1003)
+        @param id: 小程序id。夺宝赛车场(1000)、K歌夺宝(1001)、魔力碎片(1002)、爱江山更爱美人(1003)、步步赚(1004)、全民K歌夺宝(1005)
         @return: 获取金币数
         '''
-        if int(id) == 1000:
-            url = "https://microqqmall.crosscp.com/mall/vitality/game-mission"
-            data = {
-                "pet_id": self.userId,
-                "game_id": 1000,
-                "user_id": 11667,
-                "sessid": self._session,
-                "version": "2.12.0",
-                "source": "qq",
-                "from": 1
-            }
-            res = self._request(url, method="POST",data=data, headers=self.headers)
-        else:
-            json = {"gameId": str(id)}
-            res = self._request(self.urls["GAMEXCX"], method="POST",
+        json = {"gameId": int(id)}
+        res = self._request(self.urls["GAMEXCX"], method="POST",
                        json=json, headers=self.headers)
         if res.json():
-            coins = res.json().get("coins", 0)
+            coins = res.json().get("coin", 0)
             self.coins += coins
             return coins
         else:
@@ -538,7 +527,11 @@ class Qpet():
             msg = res.json()["message"]
         else:
             expireAt = res.json()["dresses"][0]["expiredAt"][:10]
-            msg = "购买成功，{expireAt}到期"
+            msg = f"购买成功，{expireAt}到期"
+            for item in self.listMissions:
+                if item["id"] == 116:
+                    item["progress"][1] += 1
+                    break
         return msg
 
 
@@ -763,4 +756,3 @@ class Qpet():
             self.listRecord = [{key if key!="abbreviation" else "name": value for key,value in item.items() if key=="abbreviation" or key=="create_time"} for item in res.json()["data"]["list"]]
         else:
             return res.json()["sMsg"]
-
