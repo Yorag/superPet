@@ -75,7 +75,7 @@
       <item row="0" column="0">
        <widget class="QPushButton" name="pushButton_boss">
         <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;执行：签到、脱离被捕并洗澡、互动点击、打工、小程序打卡、收取元气、喂食并速食、道具自动喂食&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;执行：签到、脱离被捕并洗澡、互动点击、打工（企鹅店员和游戏打卡）、收取元气、喂食并速食&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string>每日一键</string>
@@ -92,7 +92,7 @@
       <item row="0" column="2">
        <widget class="QPushButton" name="pushButton_mall">
         <property name="text">
-         <string>商城</string>
+         <string>元气商城</string>
         </property>
        </widget>
       </item>
