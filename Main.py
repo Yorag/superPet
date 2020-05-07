@@ -26,8 +26,10 @@ class Window(QMainWindow):
 
         # 实例化类，创建属性
         self.timer = QTimer(self)
+        self.pet = Qpet()
         self.friendUI = Friend()
         self.mallUI = Mall()
+        self.threads = []
         self.pet = None
         self.log = ""
         self.s = 0          # 持续秒数
@@ -84,19 +86,24 @@ class Window(QMainWindow):
         self.pushButton_outer.setEnabled(True)
         # 输出登录成功
         self._status("登录成功")
-        pool = []
+
         # 设置头像
-        pool.append(Thread(target=self._avator))
+        self._avator()
         # 调用peroid函数，设置按钮状态&信息标签
-        pool.append(Thread(target=self.peroid))
+        self.peroid()
         # 填充表格[{id, title, taked, progress[,]}]
-        pool.append(Thread(target=self.fillTable))
-        temp = [thread.start() for thread in pool]
+        self.fillTable()
+
+        self.timer.start(1000)
+
 
     # 内部使用方法
     def _move(self):
-        self.friendUI.move(self.pos().x()+self.width(), self.pos().y())
-        self.mallUI.move(self.pos().x()+self.width(), self.pos().y())
+        try:
+            self.friendUI.move(self.pos().x()+self.width(), self.pos().y())
+            self.mallUI.move(self.pos().x()+self.width(), self.pos().y())
+        except:
+            pass
 
     def _avator(self):
         '''
@@ -179,14 +186,16 @@ class Window(QMainWindow):
                 pool.append(Thread(target=self.pet.getListTask))
                 pool.append(Thread(target=self.pet.getInfo))
                 pool.append(Thread(target=self.pet.getListVigours, args=(self.pet.userId,)))
-                temp = [thread.start() for thread in pool]
-                temp = [thread.join() for thread in pool]
+                [thread.start() for thread in pool]
+                [thread.join() for thread in pool]
             elif action == self.menuItem[1]:
                 # 做任务
-                id = self.tableWidget_missions.item(row, 0).text()
+                id = int(self.tableWidget_missions.item(row, 0).text())
                 if id == 116:
                     # 买衣服
                     msg = self.pet.payDecoration(1121)
+                    if msg == "SVIP才能购买":
+                        msg = "请自行购买装饰"
                 else:
                     msg = self.pet.doTask(id)
                 self._status(msg)
@@ -197,6 +206,7 @@ class Window(QMainWindow):
                 self._status(msg)
             self.fillTable()
 
+
     # 槽函数
     def logClicked(self):
         '''运行日志文本文档'''
@@ -204,44 +214,10 @@ class Window(QMainWindow):
             f.write(self.log)
         os.startfile(os.path.join(os.getcwd(),"Data/.tmp.txt"))
 
-    def peroid(self):
-        '''周期执行'''
-        # 设置信息标签
-        info = self.info
-        info = info.replace("昵称：","昵称：{}".format(self.pet.nick))
-        info = info.replace("等级：","等级：{}".format(self.pet.level))
-        info = info.replace("经验：","经验：{}".format(self.pet.experience))
-        info = info.replace("金币：","金币：{}".format(self.pet.coins if len(str(self.pet.coins))<=6 else str(self.pet.coins)[0:len(str(self.pet.coins))-4]))
-        info = info.replace("元气：","元气：{}".format(self.pet.vigours))
-        info = info.replace('">储蓄罐：','{}">储蓄罐：{}'.format(" color: red;" if self.pet.bankCoins==self.pet.bankMaxCoins else "", self.pet.bankCoins))
-        self.label_info.setText(info)
-        # 设置按钮状态
-        if self.pet.feedCountdown:
-            m,s = divmod(self.pet.feedCountdown, 60)
-            h,m = divmod(m, 60)
-            feedsText = "{:0>2d}:{:0>2d}:{:0>2d}".format(h, m, s)
-            if not self.pet.feedsFinish:
-                self.pushButton_feeds.setEnabled(False)
-        else:
-            feedsText = "喂食"
-        self.pushButton_feeds.setText(feedsText)
-        if not self.pet.listVigours:
-            self.pushButton_collectedVigours.setEnabled(False)
-        if not self.pet.bankCoins:
-            self.pushButton_collectedCoins.setEnabled(False)
-        # 储蓄罐金币增加&喂食时间减少
-        self.s += 1
-        if not self.s%self.pet.perCoins:
-            if self.pet.bankCoins < self.pet.bankMaxCoins:
-                self.pet.bankCoins += 1
-            else:
-                self.pet.bankCoins = self.pet.bankMaxCoins
-        if self.pet.feedCountdown:
-            self.pet.feedCountdown -= 1
-
 
     def _loginCK(self):
-        cookies, ok = QInputDialog.getText(self, "ck登录", "请输入qq登录的cookies") 
+        # cookies登录，cookies必须包含[uin, skey, pt_guid_sig]三个参数
+        cookies, ok = QInputDialog.getText(self, "ck登录", "请输入qq登录的cookies：\n*必须包含uin、skey、pt_guid_sig三个参数") 
         if ok:
             self._login(cookies)
 
@@ -268,6 +244,7 @@ class Window(QMainWindow):
             thread = Thread(target=self.pet.login)
             thread.start()
             thread.join()
+            print("token：", self.pet._token)
             pool = []
             pool.append(Thread(target=self.pet.getListTask))
             pool.append(Thread(target=self.pet.getBankCoins, args=(self.pet.userId,)))
@@ -276,15 +253,56 @@ class Window(QMainWindow):
             pool.append(Thread(target=self.pet.clickStatus))
             pool.append(Thread(target=self.pet.getListgameXcx))
             # 依次执行线程并等待执行完毕
-            temp = [thread.start() for thread in pool]
-            temp = [thread.join() for thread in pool]
+            [thread.start() for thread in pool]
+            [thread.join() for thread in pool]
+
             self.isLogin = True
 
-            Thread(target=self.initInfo).start()
-            self.timer.start(1000)
+            self.initInfo()
         else:
             QMessageBox.information(self, "错误", "请检查输入cookies，是否输入正确或已过期。", QMessageBox.Yes)
 
+
+    def peroid(self):
+        '''周期执行'''
+        # 设置信息标签
+        info = self.info
+        info = info.replace("昵称：","昵称：{}".format(self.pet.nick))
+        info = info.replace("等级：","等级：{}".format(self.pet.level))
+        info = info.replace("经验：","经验：{}".format(self.pet.experience))
+        info = info.replace("金币：","金币：{}".format(self.pet.coins if len(str(self.pet.coins))<=6 else str(self.pet.coins)[0:len(str(self.pet.coins))-4]))
+        info = info.replace("元气：","元气：{}".format(self.pet.vigours))
+        info = info.replace('">储蓄罐：','{}">储蓄罐：{}'.format(" color: red;" if self.pet.bankCoins==self.pet.bankMaxCoins else "", self.pet.bankCoins))
+        self.label_info.setText(info)
+        # 设置按钮状态
+        if self.pet.feedCountdown:
+            m,s = divmod(self.pet.feedCountdown, 60)
+            h,m = divmod(m, 60)
+            feedsText = "{:0>2d}:{:0>2d}:{:0>2d}".format(h, m, s)
+            self.pushButton_feeds.setEnabled(False)
+            if not self.pet.hasFinished:
+                self.pushButton_feeds.setEnabled(False)
+        else:
+            feedsText = "喂食"
+            self.pushButton_feeds.setEnabled(True)
+        self.pushButton_feeds.setText(feedsText)
+        if self.pet.listVigours:
+            self.pushButton_collectedVigours.setEnabled(True)
+        else:
+            self.pushButton_collectedVigours.setEnabled(False)
+        if self.pet.bankCoins:
+            self.pushButton_collectedCoins.setEnabled(True)
+        else:
+            self.pushButton_collectedCoins.setEnabled(False)
+        # 储蓄罐金币增加&喂食时间减少
+        self.s += 1
+        if not self.s%self.pet.perCoins:
+            if self.pet.bankCoins < self.pet.bankMaxCoins:
+                self.pet.bankCoins += 1
+            else:
+                self.pet.bankCoins = self.pet.bankMaxCoins
+        if self.pet.feedCountdown:
+            self.pet.feedCountdown -= 1
 
 
     def boss(self):
@@ -309,7 +327,7 @@ class Window(QMainWindow):
             # 喂食速食喂食
             pool.append(Thread(target=self._feedsFinish))
 
-            temp = [thread.start() for thread in pool]
+            [thread.start() for thread in pool]
             # 做任务
             pass
 
@@ -360,7 +378,7 @@ class Window(QMainWindow):
         '''小游戏打卡'''
         coins = []
         for item in self.pet.listGameXcx:
-            if not item["todayCompleted"] and item["id"] != 1000:
+            if not item["todayCompleted"]:
                 coin = self.pet.gameXcx(item["id"])
                 if coin:
                     coins.append(coin)
@@ -439,6 +457,9 @@ class Window(QMainWindow):
             if not id: id = 3
             msg = self.pet.feeds(id)
             self._status(msg)
+            # 刷新元气列表
+            thread = Thread(target=self.pet.getListVigours, args=(self.pet.userId,))
+            thread.start()
 
     def items(self):
         '''道具'''
@@ -452,9 +473,11 @@ class Window(QMainWindow):
 
     def outer(self):
         '''登出'''
-        self._status("【{name}】登出".format(name=self.pet.nick))
+        self._status(f"【{self.pet.nick}】登出")
         self.isLogin = False
-        self.pet = None
+        self.friendUI.close()
+        self.mallUI.close()
+        self.s = 0
         self.timer.stop()
         self.pushButton_outer.setEnabled(False)
         self.pushButton_login.setEnabled(True)
@@ -465,8 +488,8 @@ class Window(QMainWindow):
         self.pushButton_feeds.setEnabled(True)
         self.pushButton_collectedCoins.setEnabled(True)
         self.pushButton_collectedVigours.setEnabled(True)
-        self.friendUI.close()
-        self.mallUI.close()
+
+
 
 
 class Friend(QWidget, QObject):
@@ -673,7 +696,7 @@ class Mall(QWidget, QObject):
             pool.append(Thread(target=self._sign))
             # 获取商品列表
             pool.append(Thread(target=self._goodlist))
-            temp = [thread.start() for thread in pool]
+            [thread.start() for thread in pool]
 
     def _sign(self):
         '''签到'''
@@ -710,7 +733,7 @@ class Mall(QWidget, QObject):
             dictMsg = self.pet.mallAd()
             print(dictMsg)
             if not dictMsg["msg"]:
-                msg = "看广告进度【{}/{}】".format(dictMsg["progress"][0], dictMsg["progress"][1])
+                msg = f'看广告进度【{dictMsg["progress"][0]}/{dictMsg["progress"][1]}】'
                 self.msg_signal.emit(msg)
                 if dictMsg["progress"][0]==dictMsg["progress"][1]:
                     flag = False
@@ -790,7 +813,7 @@ class Mall(QWidget, QObject):
         pool.append(Thread(target=self._lookAd))
         pool.append(Thread(target=self._luckDraw))
         pool.append(Thread(target=self._bargain, args=(True,)))
-        temp = [thread.start() for thread in pool]
+        [thread.start() for thread in pool]
 
 
 class MyWebEngineView(QWebEngineView):
@@ -814,7 +837,7 @@ class MyWebEngineView(QWebEngineView):
 
 if __name__ == '__main__':
     app = QApplication([])
-    # app.setWindowIcon(QIcon('./Image/song.png'))
+    # app.setWindowIcon(QIcon('./Image/icon.png'))
     window = Window()
     window.show()
     app.exec_()
